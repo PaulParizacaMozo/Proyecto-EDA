@@ -42,3 +42,9 @@ Puedes invocar la suite de pruebas con:
 ```bash
 ./octree-test
 ```
+
+## Analisis:
+
+Las siguientes clases estan presentes en el proyecto:
+
+![Texto alternativo](img/ClasesOctree.png)
