@@ -840,3 +840,274 @@ void Octree<PointT, ContainerT>::radiusNeighbors(const Octant* octant, const Poi
 - Si el octante es una hoja, revisa cada punto dentro del octante y agrega los índices de los puntos que están dentro del radio especificado.
 - Si el octante no es una hoja, verifica si los nodos hijos están en el rango y realiza llamadas recursivas para buscar vecinos en esos octantes hijos que están dentro del radio.
 - Utiliza la distancia proporcionada por la plantilla `Distance` para calcular las distancias entre puntos.
+
+### **Función `radiusNeighbors` con Distancias en el Octree:**
+
+```cpp
+template <typename PointT, typename ContainerT>
+template <typename Distance>
+void Octree<PointT, ContainerT>::radiusNeighbors(const Octant* octant, const PointT& query, float radius,
+                                                 float sqrRadius, std::vector<uint32_t>& resultIndices,
+                                                 std::vector<float>& distances) const
+{
+  const ContainerT& points = *data_;
+
+  // Si la esfera de búsqueda S(q, r) contiene el octante, simplemente agregamos los índices de los puntos y calculamos las distancias al cuadrado.
+  if (contains<Distance>(query, sqrRadius, octant))
+  {
+    uint32_t idx = octant->start;
+    for (uint32_t i = 0; i < octant->size; ++i)
+    {
+      resultIndices.push_back(idx);
+      distances.push_back(Distance::compute(query, points[idx]));
+      idx = successors_[idx];
+    }
+
+    return;  // Podamos temprano.
+  }
+
+  if (octant->isLeaf)
+  {
+    // Si el octante es una hoja, revisamos cada punto dentro del octante.
+    uint32_t idx = octant->start;
+    for (uint32_t i = 0; i < octant->size; ++i)
+    {
+      const PointT& p = points[idx];
+      float dist = Distance::compute(query, p);
+
+      // Si la distancia es menor que el cuadrado del radio, agregamos el índice del punto y la distancia al vector de resultados.
+      if (dist < sqrRadius)
+      {
+        resultIndices.push_back(idx);
+        distances.push_back(dist);
+      }
+      idx = successors_[idx];
+    }
+
+    return;
+  }
+
+  // Verificamos si los nodos hijos están en el rango.
+  for (uint32_t c = 0; c < 8; ++c)
+  {
+    if (octant->child[c] == 0) continue;
+
+    // Si no hay superposición entre la esfera de búsqueda y el octante hijo, continuamos con el siguiente hijo.
+    if (!overlaps<Distance>(query, radius, sqrRadius, octant->child[c])) continue;
+
+    // Llamada recursiva para buscar vecinos en el octante hijo.
+    radiusNeighbors<Distance>(octant->child[c], query, radius, sqrRadius, resultIndices, distances);
+  }
+}
+```
+
+**Análisis:**
+
+- Esta función es similar a la anterior, pero también calcula y almacena las distancias entre el punto de consulta y los puntos dentro del radio.
+- Se utiliza un vector adicional (`distances`) para almacenar estas distancias correspondientes a los índices de los puntos encontrados.
+- La distancia se calcula mediante la función `Distance::compute(query, p)` proporcionada por la plantilla `Distance`.
+- Agrega los índices de los puntos y sus distancias al vector de resultados si cumplen con el criterio del radio especificado.
+
+### **Funciones `radiusNeighbors` en el Octree:**
+
+```cpp
+// Función para buscar vecinos dentro de un radio alrededor de un punto de consulta en el octree
+template <typename PointT, typename ContainerT>
+template <typename Distance>
+void Octree<PointT, ContainerT>::radiusNeighbors(const PointT& query, float radius,
+                                                 std::vector<uint32_t>& resultIndices) const
+{
+  resultIndices.clear();  // Limpiamos el vector de resultados.
+  if (root_ == 0) return;  // Si el octree está vacío, terminamos la función.
+
+  float sqrRadius = Distance::sqr(radius);  // Calculamos el cuadrado del radio.
+
+  // Llamamos a la función recursiva para buscar vecinos en el octree.
+  radiusNeighbors<Distance>(root_, query, radius, sqrRadius, resultIndices);
+}
+
+// Función para buscar vecinos dentro de un radio alrededor de un punto de consulta en el octree
+template <typename PointT, typename ContainerT>
+template <typename Distance>
+void Octree<PointT, ContainerT>::radiusNeighbors(const PointT& query, float radius,
+                                                 std::vector<uint32_t>& resultIndices,
+                                                 std::vector<float>& distances) const
+{
+  resultIndices.clear();   // Limpiamos el vector de resultados de índices.
+  distances.clear();        // Limpiamos el vector de resultados de distancias.
+  if (root_ == 0) return;   // Si el octree está vacío, terminamos la función.
+
+  float sqrRadius = Distance::sqr(radius);  // Calculamos el cuadrado del radio.
+
+  // Llamada a la función recursiva para buscar vecinos en el octree.
+  radiusNeighbors<Distance>(root_, query, radius, sqrRadius, resultIndices, distances);
+}
+```
+
+**Análisis:**
+
+- Estas funciones proporcionan una interfaz amigable para buscar vecinos dentro de un radio alrededor de un punto de consulta en el octree.
+- Se aseguran de que los vectores de resultados (`resultIndices` y `distances`) estén limpios antes de realizar la búsqueda.
+- Verifican si el octree está vacío antes de iniciar la búsqueda.
+- Calculan el cuadrado del radio para optimizar las comparaciones de distancia durante la búsqueda.
+- Llaman a la función recursiva `radiusNeighbors` con el nodo raíz del octree, el punto de consulta, el radio y el cuadrado del radio.
+
+### **Función `overlaps` en el Octree:**
+
+```cpp
+template <typename PointT, typename ContainerT>
+template <typename Distance>
+bool Octree<PointT, ContainerT>::overlaps(const PointT& query, float radius, float sqRadius, const Octant* o)
+{
+  // Exploitamos la simetría para reducir la prueba a verificar si está dentro de la suma de Minkowski alrededor del cuadrante positivo.
+  float x = get<0>(query) - o->x;
+  float y = get<1>(query) - o->y;
+  float z = get<2>(query) - o->z;
+
+  x = std::abs(x);
+  y = std::abs(y);
+  z = std::abs(z);
+
+  float maxdist = radius + o->extent;
+
+  // Completamente afuera, ya que q' está fuera del área relevante.
+  if (x > maxdist || y > maxdist || z > maxdist) return false;
+
+  int32_t num_less_extent = (x < o->extent) + (y < o->extent) + (z < o->extent);
+
+  // Verificando diferentes casos:
+
+  // a. Dentro de la región superficial del octante.
+  if (num_less_extent > 1) return true;
+
+  // b. Verificando la región de la esquina y la región del borde.
+  x = std::max(x - o->extent, 0.0f);
+  y = std::max(y - o->extent, 0.0f);
+  z = std::max(z - o->extent, 0.0f);
+
+  return (Distance::norm(x, y, z) < sqRadius);
+}
+```
+
+**Observaciones:**
+
+1. **Coordenadas Relativas:**
+   - La función calcula las coordenadas relativas de `query` respecto al centro del octante `o`.
+
+2. **Cálculos con Simetría:**
+   - Se explota la simetría para reducir la prueba a verificar si está dentro de la suma de Minkowski alrededor del cuadrante positivo.
+
+3. **Comparaciones con el Extent:**
+   - Compara las coordenadas relativas `x`, `y`, y `z` con el `extent` del octante.
+
+4. **Casos de Superposición:**
+   - Si al menos dos coordenadas relativas están dentro del `extent`, considera que hay una superposición.
+
+5. **Región de la Esquina y del Borde:**
+   - En caso contrario, ajusta las coordenadas considerando la región de la esquina y la región del borde.
+
+6. **Norma y Comparación con el Cuadrado del Radio:**
+   - Calcula la norma Euclidiana de las coordenadas ajustadas y compara con el cuadrado del radio (`sqRadius`).
+
+7. **Retorno:**
+   - Devuelve `true` si existe superposición, indicando que la esfera definida por el radio se superpone con el octante.
+
+**Nota:**
+- Esta función es crucial para determinar si una esfera con un cierto radio alrededor de un punto de consulta se superpone con un octante en el octree.
+- La técnica utilizada para reducir la prueba a la suma de Minkowski simplifica el proceso de verificación de superposición.
+- Los comentarios en el código proporcionan una guía clara sobre cómo se están realizando las pruebas y las decisiones en diferentes casos.
+
+### **Función `contains` en el Octree:**
+
+```cpp
+template <typename PointT, typename ContainerT>
+template <typename Distance>
+bool Octree<PointT, ContainerT>::contains(const PointT& query, float sqRadius, const Octant* o)
+{
+  // Explotamos la simetría para reducir la prueba a verificar
+  // si la esquina más lejana está dentro de la bola de búsqueda.
+  float x = get<0>(query) - o->x;
+  float y = get<1>(query) - o->y;
+  float z = get<2>(query) - o->z;
+
+  x = std::abs(x);
+  y = std::abs(y);
+  z = std::abs(z);
+  // Recordatorio: (x, y, z) - (-e, -e, -e) = (x, y, z) + (e, e, e)
+  x += o->extent;
+  y += o->extent;
+  z += o->extent;
+
+  // Verificamos si la norma euclidiana al cuadrado de la esquina más lejana está dentro del cuadrado del radio.
+  return (Distance::norm(x, y, z) < sqRadius);
+}
+```
+
+**Observaciones:**
+
+1. **Coordenadas Relativas:**
+   - La función calcula las coordenadas relativas de `query` respecto al centro del octante `o`.
+
+2. **Cálculos con Simetría:**
+   - Se explota la simetría para reducir la prueba a verificar si la esquina más lejana está dentro de la bola de búsqueda.
+
+3. **Ajuste de Coordenadas:**
+   - Se toman las coordenadas absolutas (`std::abs`) para garantizar que se trabaje con distancias positivas.
+   - Se ajustan las coordenadas añadiendo el `extent` del octante.
+
+4. **Norma y Comparación con el Cuadrado del Radio:**
+   - Calcula la norma euclidiana al cuadrado de la esquina más lejana.
+   - Compara la norma calculada con el cuadrado del radio (`sqRadius`).
+
+5. **Retorno:**
+   - Devuelve `true` si la norma euclidiana al cuadrado de la esquina más lejana está dentro del cuadrado del radio, indicando que el octante contiene completamente la esfera.
+
+**Nota:**
+- Esta función es crucial para determinar si un octante contiene completamente una esfera con un cierto radio alrededor de un punto de consulta en el octree.
+- La estrategia de utilizar la esquina más lejana del octante simplifica la prueba de contención y aprovecha la simetría del problema.
+
+### **Análisis de la función `inside` en el Octree:**
+
+```cpp
+template <typename PointT, typename ContainerT>
+template <typename Distance>
+bool Octree<PointT, ContainerT>::inside(const PointT& query, float radius, const Octant* octant)
+{
+  // Explotamos la simetría para reducir la prueba y verificar
+  // si la esquina más lejana está dentro de la esfera de búsqueda.
+  float x = get<0>(query) - octant->x;
+  float y = get<1>(query) - octant->y;
+  float z = get<2>(query) - octant->z;
+
+  // Añadimos el radio a las coordenadas absolutas de la diferencia.
+  x = std::abs(x) + radius;
+  y = std::abs(y) + radius;
+  z = std::abs(z) + radius;
+
+  // Comprobamos si las coordenadas ajustadas están dentro de la mitad del tamaño del octante.
+  if (x > octant->extent) return false;
+  if (y > octant->extent) return false;
+  if (z > octant->extent) return false;
+
+  // Si todas las coordenadas ajustadas están dentro, la esfera está completamente dentro del octante.
+  return true;
+}
+```
+
+**Observaciones:**
+
+1. **Coordenadas Relativas:**
+   - La función calcula las coordenadas relativas de `query` respecto al centro del octante `octant`.
+
+2. **Ajuste de Coordenadas:**
+   - Se añade el radio a las coordenadas absolutas de la diferencia. Esto se hace para expandir el volumen de búsqueda y verificar si la esquina más lejana de la esfera está dentro del octante.
+
+3. **Comprobación de Contención:**
+   - Comprueba si las coordenadas ajustadas están dentro de la mitad del tamaño del octante (`octant->extent`).
+   - Si alguna coordenada excede la mitad del tamaño del octante, la esfera no está completamente dentro y se devuelve `false`.
+
+4. **Retorno:**
+   - Devuelve `true` si todas las coordenadas ajustadas están dentro de la mitad del tamaño del octante, indicando que la esfera está completamente dentro del octante.
+
+**Nota:**
+- Esta función es utilizada para verificar si una esfera está completamente dentro de un octante en el octree. Se aprovecha la simetría del problema para simplificar la prueba de contención.
