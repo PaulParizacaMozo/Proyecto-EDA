@@ -1066,7 +1066,7 @@ bool Octree<PointT, ContainerT>::contains(const PointT& query, float sqRadius, c
 - Esta función es crucial para determinar si un octante contiene completamente una esfera con un cierto radio alrededor de un punto de consulta en el octree.
 - La estrategia de utilizar la esquina más lejana del octante simplifica la prueba de contención y aprovecha la simetría del problema.
 
-### **Análisis de la función `inside` en el Octree:**
+### **Función `inside` en el Octree:**
 
 ```cpp
 template <typename PointT, typename ContainerT>
@@ -1111,3 +1111,130 @@ bool Octree<PointT, ContainerT>::inside(const PointT& query, float radius, const
 
 **Nota:**
 - Esta función es utilizada para verificar si una esfera está completamente dentro de un octante en el octree. Se aprovecha la simetría del problema para simplificar la prueba de contención.
+
+### **Función `findNeighbor` en el Octree:**
+
+```cpp
+template <typename PointT, typename ContainerT>
+template <typename Distance>
+int32_t Octree<PointT, ContainerT>::findNeighbor(const PointT& query, float minDistance) const
+{
+  float maxDistance = std::numeric_limits<float>::infinity();
+  int32_t resultIndex = -1;
+
+  // Si el octree está vacío, retornamos -1 indicando que no hay vecino.
+  if (root_ == 0)
+    return resultIndex;
+
+  // Llamada a la función recursiva para encontrar el vecino más cercano.
+  findNeighbor<Distance>(root_, query, minDistance, maxDistance, resultIndex);
+
+  // Devolvemos el índice del vecino más cercano encontrado.
+  return resultIndex;
+}
+```
+
+**Observaciones:**
+
+1. **Parámetros Iniciales:**
+   - `minDistance`: Es la distancia mínima requerida para considerar un vecino.
+   - `maxDistance`: Se inicializa con infinito, se actualizará durante la búsqueda.
+   - `resultIndex`: Almacena el índice del vecino más cercano encontrado.
+
+2. **Comprobación de Octree Vacío:**
+   - Se verifica si el octree está vacío (`root_ == 0`), en cuyo caso se devuelve `-1` indicando que no hay vecino.
+
+3. **Llamada a Función Recursiva:**
+   - Se llama a la función recursiva `findNeighbor` con el nodo raíz (`root_`), el punto de consulta (`query`), la distancia mínima (`minDistance`), la distancia máxima (`maxDistance`), y la variable para almacenar el índice del vecino (`resultIndex`).
+
+4. **Retorno del Índice del Vecino Más Cercano:**
+   - Devuelve el índice del vecino más cercano encontrado después de la búsqueda.
+
+**Nota:**
+- La función utiliza una búsqueda recursiva en el octree para encontrar el vecino más cercano al punto de consulta, utilizando la distancia especificada (`minDistance`). El resultado se almacena en `resultIndex`. Si el octree está vacío, se devuelve `-1`.
+
+### **Función privada `findNeighbor` (de manera recursiva) en el Octree:**
+
+```cpp
+template <typename PointT, typename ContainerT>
+template <typename Distance>
+bool Octree<PointT, ContainerT>::findNeighbor(const Octant* octant, const PointT& query, float minDistance,
+                                              float& maxDistance, int32_t& resultIndex) const
+{
+  const ContainerT& points = *data_;
+
+  // 1. Descendemos al nodo hoja y comprobamos en los puntos de la hoja.
+  if (octant->isLeaf)
+  {
+    uint32_t idx = octant->start;
+    float sqrMaxDistance = Distance::sqr(maxDistance);
+    float sqrMinDistance = (minDistance < 0) ? minDistance : Distance::sqr(minDistance);
+
+    for (uint32_t i = 0; i < octant->size; ++i)
+    {
+      const PointT& p = points[idx];
+      float dist = Distance::compute(query, p);
+      if (dist > sqrMinDistance && dist < sqrMaxDistance)
+      {
+        resultIndex = idx;
+        sqrMaxDistance = dist;
+      }
+      idx = successors_[idx];
+    }
+
+    // Actualizamos la distancia máxima con el vecino más cercano encontrado y verificamos si está dentro del octante.
+    maxDistance = Distance::sqrt(sqrMaxDistance);
+    return inside<Distance>(query, maxDistance, octant);
+  }
+
+  // Determinamos el código Morton para cada punto.
+  uint32_t mortonCode = 0;
+  if (get<0>(query) > octant->x) mortonCode |= 1;
+  if (get<1>(query) > octant->y) mortonCode |= 2;
+  if (get<2>(query) > octant->z) mortonCode |= 4;
+
+  // 2. Si el vecino está en un octante hijo, realizamos una llamada recursiva.
+  if (octant->child[mortonCode] != 0)
+  {
+    if (findNeighbor<Distance>(octant->child[mortonCode], query, minDistance, maxDistance, resultIndex))
+      return true;
+  }
+
+  // 3. Si el mejor punto actual está completamente dentro, simplemente retornamos.
+  float sqrMaxDistance = Distance::sqr(maxDistance);
+
+  // 4. Comprobamos octantes adyacentes para ver si se superponen y los comprobamos si es necesario.
+  for (uint32_t c = 0; c < 8; ++c)
+  {
+    if (c == mortonCode) continue;
+    if (octant->child[c] == 0) continue;
+    if (!overlaps<Distance>(query, maxDistance, sqrMaxDistance, octant->child[c])) continue;
+    if (findNeighbor<Distance>(octant->child[c], query, minDistance, maxDistance, resultIndex))
+      return true;  // Podamos temprano.
+  }
+
+  // Todos los hijos han sido comprobados... comprobamos si el punto está dentro del octante actual.
+  return inside<Distance>(query, maxDistance, octant);
+}
+```
+
+**Observaciones:**
+
+1. **Descenso al Nodo Hoja:**
+   - Si el nodo actual es una hoja (es decir, `octant->isLeaf` es verdadero), la función busca en los puntos de la hoja y actualiza el vecino más cercano (`resultIndex`) y la distancia máxima (`maxDistance`) según los criterios especificados.
+
+2. **Determinación del Código Morton:**
+   - Se determina el código Morton para el punto de consulta (`query`) en base a su posición en relación con las coordenadas del octante.
+
+3. **Llamada Recursiva a los Octantes Hijos:**
+   - Si el octante hijo correspondiente al código Morton del punto existe (`octant->child[mortonCode] != 0`), se realiza una llamada recursiva a la función `findNeighbor` en ese octante hijo.
+
+4. **Comprobación y Descenso en Octantes Adyacentes:**
+   - Se exploran los octantes adyacentes al actual para verificar si se superponen con la esfera de búsqueda. Se realiza una llamada recursiva en los octantes adyacentes que cumplan con esta condición.
+
+5. **Comprobación Final en el Octante Actual:**
+   - Si el punto de consulta está dentro del octante actual (comprobado por la función `inside<Distance>`), la función devuelve verdadero.
+
+6. **Retorno del Resultado:**
+   - La función devuelve verdadero si se encontró un vecino más cercano y falso de lo contrario.
+

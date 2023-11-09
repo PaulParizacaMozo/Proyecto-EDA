@@ -125,13 +125,11 @@ struct L2Distance
 
   // Método para calcular el cuadrado de un valor (se utiliza en comparaciones de distancias)
   static inline float sqr(float r)  {
-    // El cuadrado de un valor es el valor multiplicado por sí mismo
     return r * r;
   }
 
   // Método para calcular la raíz cuadrada de un valor (también utilizado en comparaciones de distancias)
   static inline float sqrt(float r)  {
-    // Utiliza la función sqrt estándar para calcular la raíz cuadrada
     return std::sqrt(r);
   }
 };
