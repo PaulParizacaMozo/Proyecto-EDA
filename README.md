@@ -1,20 +1,16 @@
 
-# Efficient Radius Neighbor Search in Three-dimensional Point Clouds
+# Proyecto - Estructura de Datos Avanzados
 
-This repository provides the Octree implementation of the paper "Efficient Radius Neighbor Search in Three-dimensional Point Clouds" by J. Behley, V. Steinhage, and A.B. Cremers, University of Bonn presented at the IEEE International Conference on Robotics and Automation (ICRA), 2015.
+Replica del proyecto: Efficient Radius Neighbor Search in Three-dimensional Point Clouds
+
+Link poryecto original: [Pagina original](https://github.com/jbehley/octree)
 
 
-## Features
-- Fast radius neighbor search for three-dimensional point clouds.
-- Fully templated for maximal flexibility to support arbitrary point representations & containers
-- Supports arbitrary p-norms: L1, L2 and Maximum norm included.
-- Nearest neighbor search with arbitrary norms (added 25. November 2015).
+## Contruccion
 
-## Building the examples & tests
-
-The octree itself has no dependencies. 
-However, for compiling the examples, you need [CMake](http://www.cmake.org/) and [Boost C++ library](http://www.boost.org/).
-For building the examples you have to first build the project:
+El octree en sí mismo no tiene dependencias.
+Sin embargo, para compilar los ejemplos, necesitas [CMake](http://www.cmake.org/) y la [biblioteca Boost C++](http://www.boost.org/).
+Para construir los ejemplos, primero debes construir el proyecto:
 
 ```bash
 mkdir build
@@ -23,52 +19,26 @@ cmake ..
 make
 ```
 
-To run the examples, you need some point cloud data:
+Para ejecutar los ejemplos, necesitas algunos datos de nube de puntos:
 
 ```bash
 wget http://jbehley.github.io/data/wachtberg_folds.zip
 unzip wachtberg_folds.zip -d data
 ```
 
-Now you can run the examples:
+Ahora puedes ejecutar los ejemplos:
 
 ```bash
 ./example1 data/scan_001_points.dat
 ```
 
-which perform some queries and demonstrate the flexibility of our Octree implementation to handle different implementations of points.
+que realiza algunas consultas y demuestra la flexibilidad de nuestra implementación de Octree para manejar diferentes implementaciones de puntos.
 
-The different examples show some use cases of the octree. `example1` demonstrates the general usage with point data types providing public access to x,y,z coordinates. `example2` shows how to use a different point type, which non-public coordinates. `example3` shows how to use the templated method inside an also templated descriptor.
+Los diferentes ejemplos muestran algunos casos de uso del octree. `example1` demuestra el uso general con tipos de datos de puntos que proporcionan acceso público a las coordenadas x, y, z. `example2` muestra cómo utilizar un tipo de punto diferente, que tiene coordenadas no públicas. `example3` muestra cómo utilizar el método de plantilla dentro de un descriptor también templado.
 
-We also provide a test case using the [Google Test Framework (GTest)](https://code.google.com/p/googletest/), which is automatically build if the package is either found by Cmake or in the corresponding source directory, e.g., /usr/src/gtest/.
-You can invoke the testsuite with
+También proporcionamos un caso de prueba utilizando el [Google Test Framework (GTest)](https://code.google.com/p/googletest/), que se compila automáticamente si el paquete se encuentra ya sea por CMake o en el directorio fuente correspondiente, por ejemplo, /usr/src/gtest/.
+Puedes invocar la suite de pruebas con:
 
 ```bash
 ./octree-test
 ```
-
-## Contact
-
-Feel free to contact me (see also my [academic homepage](http://jbehley.github.io/)) if you have questions regarding the implementation.
-
-## Attribution
-
-If you use the implementation or ideas from the [corresponding paper](http://jbehley.github.io/papers/behley2015icra.pdf) in your academic work, it would be nice if you cite the corresponding paper:
-
-J. Behley, V. Steinhage, A.B. Cremers. *Efficient Radius Neighbor Search in Three-dimensional Point Clouds*, Proc. of the IEEE International Conference on Robotics and Automation (ICRA), 2015.
-
-The BibTeX entry for the paper is::
-    
-    @conference{behley2015icra,
-         author = {Jens Behley and Volker Steinhage and Armin B. Cremers},
-          title = {{Efficient Radius Neighbor Seach in Three-dimensional Point Clouds}},
-      booktitle = {Proc. of the IEEE International Conference on Robotics and Automation (ICRA)},
-           year = {2015}
-    }
-
-## License
-
-
-Copyright 2015 Jens Behley, University of Bonn.
-
-This project is free software made available under the MIT License. For details see the LICENSE file.
