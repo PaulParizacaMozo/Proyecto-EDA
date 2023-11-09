@@ -1238,3 +1238,35 @@ bool Octree<PointT, ContainerT>::findNeighbor(const Octant* octant, const PointT
 6. **Retorno del Resultado:**
    - La función devuelve verdadero si se encontró un vecino más cercano y falso de lo contrario.
 
+
+### Ejemplo: Búsqueda de Vecinos en un Octree con Variables Públicas:**
+
+**Estructura de Clases y Archivos Incluidos:**
+- Se define una clase `Point3f` que representa un punto tridimensional con variables públicas `x`, `y`, y `z`.
+- El código incluye archivos necesarios, como "Octree.hpp" que contiene la implementación del octree y "utils.h" que incluye funciones de utilidad.
+
+**Función Principal `main`:**
+1. **Lectura de la Nube de Puntos desde Archivo:**
+   - Se verifica que se proporcione el nombre del archivo de la nube de puntos como argumento de línea de comandos.
+   - Se utiliza la función de utilidad `readPoints` para leer los puntos desde el archivo especificado.
+
+2. **Inicialización del Octree:**
+   - Se inicializa un objeto `octree` de la clase `unibn::Octree<Point3f>` y se utiliza la función `initialize` para cargar los puntos en el octree.
+
+3. **Búsqueda de Vecinos en un Radio Específico:**
+   - Se realiza una búsqueda de vecinos en un radio específico (0.2 metros) para el primer punto en la nube de puntos (`points[0]`).
+   - Los resultados se almacenan en un vector `results` y se imprimen en la consola.
+
+4. **Consulta para Cada Punto en la Nube de Puntos:**
+   - Se realiza una consulta de vecinos para cada punto en la nube de puntos utilizando un radio de 0.5 metros.
+   - Se mide el tiempo que tarda esta operación y se imprime en la consola.
+
+5. **Limpieza del Octree:**
+   - Se llama a la función `clear` para limpiar el octree después de realizar las consultas.
+
+**Observaciones:**
+- El ejemplo demuestra el uso de la biblioteca Octree (`unibn::Octree`) para realizar búsquedas de vecinos en una nube de puntos tridimensionales.
+- Se utiliza la métrica de distancia L2 (`unibn::L2Distance`) para calcular la distancia entre puntos.
+- La búsqueda de vecinos se realiza tanto para un punto específico como para cada punto en la nube de puntos.
+- El código mide el tiempo que tarda la búsqueda de todos los vecinos y lo imprime en la consola.
+- El ejemplo se centra en la búsqueda de vecinos en un radio específico, lo que es común en aplicaciones de procesamiento de nubes de puntos, visión por computadora, etc.
